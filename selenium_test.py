@@ -14,7 +14,7 @@ from selenium.common.exceptions import TimeoutException
 
 browser = webdriver.Chrome()
 browser.get('https://bonk.io/')
-delay=3#seconds
+delay=10#seconds
 try:
     myElem = WebDriverWait(browser, delay).until(EC.element_to_be_clickable((By.ID, 'sp_message_iframe_403823')))
 except TimeoutException:
@@ -26,6 +26,9 @@ try:
 except TimeoutException:
     print("Loading took too much time!")
 browser.find_element_by_xpath("//button[text()='Accept']").click()
+
+
+
 browser.switch_to.parent_frame()
 browser.switch_to.frame('maingameframe')
 try:
@@ -34,7 +37,26 @@ except TimeoutException:
     print("Loading took too much time!")
 browser.find_element_by_id('guestOrAccountContainer_guestButton').click()
 
-print()
-browser.find_element_by_id('newbonkgamecontainer')
 
-browser.find_element_by_xpath("//button[contains (title(),'Accept')]")
+#CLICK PLAY
+try:
+    myElem = WebDriverWait(browser, delay).until(EC.element_to_be_clickable((By.ID, 'guestOrAccountContainer_guestButton')))
+except TimeoutException:
+    print("Loading took too much time!")
+browser.find_element_by_id('guestPlayButton').click()
+
+try:
+    myElem = WebDriverWait(browser, delay).until(EC.element_to_be_clickable((By.ID, 'classic_mid_quickplay')))
+except TimeoutException:
+    print("Loading took too much time!")
+browser.find_element_by_id('classic_mid_quickplay').click()
+
+try:
+    myElem = WebDriverWait(browser, delay).until(EC.element_to_be_clickable((By.ID, 'quickPlayWindow_ClassicButton')))
+except TimeoutException:
+    print("Loading took too much time!")
+
+element = browser.find_element_by_id('quickPlayWindow_ClassicButton')
+browser.execute_script("arguments[0].click();", element)
+
+print()
