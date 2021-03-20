@@ -40,7 +40,7 @@ browser.find_element_by_id('guestOrAccountContainer_guestButton').click()
 
 #CLICK PLAY
 try:
-    myElem = WebDriverWait(browser, delay).until(EC.element_to_be_clickable((By.ID, 'guestOrAccountContainer_guestButton')))
+    myElem = WebDriverWait(browser, delay).until(EC.element_to_be_clickable((By.ID, 'guestPlayButton')))
 except TimeoutException:
     print("Loading took too much time!")
 browser.find_element_by_id('guestPlayButton').click()
