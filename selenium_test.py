@@ -58,5 +58,9 @@ except TimeoutException:
 
 element = browser.find_element_by_id('quickPlayWindow_ClassicButton')
 browser.execute_script("arguments[0].click();", element)
+browser.save_screenshot("test.png")
 
+element = browser.find_element_by_id('gamerenderer')
+with open('test.png', 'wb') as f:
+    f.write(element.screenshot_as_png)
 print()
