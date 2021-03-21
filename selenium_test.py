@@ -7,15 +7,22 @@ from selenium.webdriver.support.ui import Select
 from random import randint
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
-
+import time
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.chrome.options import Options
 
-browser = webdriver.Chrome()
+
+
+chrome_options = Options()
+chrome_options.add_argument("--window-size=1920,1080")
+browser = webdriver.Chrome(chrome_options=chrome_options)
 browser.get('https://bonk.io/')
 delay=10#seconds
+#REMOVE COKIES
+time.sleep(0.1)
 try:
     myElem = WebDriverWait(browser, delay).until(EC.element_to_be_clickable((By.ID, 'sp_message_iframe_403823')))
 except TimeoutException:
@@ -30,6 +37,7 @@ browser.find_element_by_xpath("//button[text()='Accept']").click()
 
 
 #click login
+time.sleep(0.1)
 browser.switch_to.parent_frame()
 browser.switch_to.frame('maingameframe')
 try:
@@ -40,6 +48,7 @@ browser.find_element_by_id('guestOrAccountContainer_accountButton').click()
 
 
 #pass username and password
+time.sleep(0.1)
 try:
     myElem = WebDriverWait(browser, delay).until(EC.element_to_be_clickable((By.ID, 'loginwindow_password')))
 except TimeoutException:
@@ -79,9 +88,9 @@ element = browser.find_element_by_id('quickPlayWindow_ClassicButton')
 browser.execute_script("arguments[0].click();", element)
 browser.save_screenshot("test.png")
 
-#GET GAME RENDER
+#SAVE FRAME
 element = browser.find_element_by_id('gamerenderer')
-with open('test.png', 'wb') as f:
+with open('testV.png', 'wb') as f:
     f.write(element.screenshot_as_png)
 print()
 
