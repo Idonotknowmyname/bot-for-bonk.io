@@ -114,9 +114,9 @@ def save_screenshot(browser, fname='filename.png'):
         print("ERROR: failed to save screenshot ->", str(e))
 
 
-def from_main_menu_to_game(headless=False):
+def from_main_menu_to_game(driver_type="chrome", headless=False):
     """ Create a browser, login and queue up for a game. """
-    browser = setup_browser(headless=headless)
+    browser = setup_browser(driver_type=driver_type, headless=headless)
 
     # Remove cookies
     time.sleep(0.1)
