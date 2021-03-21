@@ -3,6 +3,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
+
+from selenium import webdriver
+
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
@@ -22,7 +25,7 @@ BONK_URL = "http://bonk.io"
 DELAY = 5
 
 
-def setup_browser(driver_type="firefox", headless=False):
+def setup_browser(driver_type="htmlUnit", headless=False):
     """ Create a webdriver instance browser """
     if driver_type == "chrome":
         options = ChromeOptions()
@@ -38,6 +41,12 @@ def setup_browser(driver_type="firefox", headless=False):
             options.add_argument("--window-size=1080,1080")
 
         browser = webdriver.Firefox(options=options)
+    
+    elif driver_type == "htmlUnit":
+        driver = connect(HTMLUNIT, server="http://<selenium_server>:4444")
+
+        # driver = webdriver.Remote(desired_capabilities=webdriver.DesiredCapabilities.HTMLUNIT)
+        # driver.set_window_size(1080, 1080)
     else:
         raise NotImplementedError()
 
