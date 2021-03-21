@@ -4,6 +4,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 
+import time
+
 
 def skip_cookies(browser):
 
@@ -50,36 +52,41 @@ def wait_until_clickable(browser, by_what, value):
 
 def wait_until_clickable_and_click(browser, by_what, value):
     wait_until_clickable(browser, by_what, value)
-    browser.find_element_by_xpath(value).click()
+    if by_what == By.XPATH:
+        browser.find_element_by_xpath(value).click()
+    elif by_what == By.ID:
+        browser.find_element_by_id(value).click()
+    else:
+        raise NotImplementedError()
 
 
 def from_main_menu_to_game():
     browser = setup_browser()
 
+    # Remove cookies
+    time.sleep(0.1)
     wait_until_clickable(browser, By.ID, 'sp_message_iframe_403823')
     switch_to_frame(browser, 'sp_message_iframe_403823')
 
     wait_until_clickable_and_click(browser, By.XPATH, "//button[text()='Accept']")
 
+    # Switch to game frame
+    time.sleep(1.0)
     switch_to_mainframe(browser)
     switch_to_frame(browser, 'maingameframe')
 
+    # Login/Register button
     wait_until_clickable_and_click(browser,  By.ID, 'guestOrAccountContainer_accountButton')
-    # pass username and password
-    try:
-        myElem = WebDriverWait(browser, delay).until(EC.element_to_be_clickable((By.ID, 'loginwindow_password')))
-    except TimeoutException:
-        print("Loading took too much time!")
+
+    # enter username and password
+    time.sleep(0.1)
+    wait_until_clickable(browser, By.ID, 'loginwindow_password')
     username = 'DefntlyNotAbot'
     password = 'abc123'
     browser.find_element_by_id('loginwindow_username').send_keys(username)
     browser.find_element_by_id('loginwindow_password').send_keys(password)
     # CLICK LOGIN
-    try:
-        myElem = WebDriverWait(browser, delay).until(EC.element_to_be_clickable((By.ID, 'loginwindow_submitbutton')))
-    except TimeoutException:
-        print("Loading took too much time!")
-    browser.find_element_by_id('loginwindow_submitbutton').click()
+    wait_until_clickable_and_click(browser, By.ID, 'loginwindow_submitbutton')
 
     wait_until_clickable_and_click(browser,  By.ID, 'classic_mid_quickplay')
 
