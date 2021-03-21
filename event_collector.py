@@ -245,7 +245,7 @@ if __name__ == "__main__":
     try:
         while True:
             frames, mask = ec.get_last_n_frames()
-            print(frames[-1][0])
+            # print(frames[-1][0])
             cv.imshow("screen", frames[-1][1])
             cv.waitKey(1)
             # time.sleep(1.)
