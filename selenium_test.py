@@ -17,7 +17,9 @@ from selenium.webdriver.chrome.options import Options
 
 
 chrome_options = Options()
-chrome_options.add_argument("--window-size=1920,1080")
+chrome_options.add_argument("--window-size=1080,1080")
+# chrome_options.add_argument("--headless")
+
 browser = webdriver.Chrome(chrome_options=chrome_options)
 browser.get('https://bonk.io/')
 delay=10#seconds
@@ -90,8 +92,11 @@ browser.save_screenshot("test.png")
 
 #SAVE FRAME
 element = browser.find_element_by_id('gamerenderer')
-with open('testV.png', 'wb') as f:
-    f.write(element.screenshot_as_png)
+for i in range(1000):
+    t = time.time()
+    # time.sleep(0.01)
+    element.screenshot_as_png
+    print(time.time()-t)
 print()
 
 #DO ACTION
