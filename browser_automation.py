@@ -3,8 +3,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.chrome.options import Options
 
 import time
+import os
+import os.path as osp
 
 
 def skip_cookies(browser):
@@ -18,10 +21,14 @@ BONK_URL = "http://bonk.io"
 DELAY = 5
 
 
-def setup_browser(driver_type="chrome"):
+def setup_browser(driver_type="chrome", headless=False):
     """ Create a webdriver instance browser """
     if driver_type == "chrome":
-        browser = webdriver.Chrome()
+        options = Options()
+        if headless:
+            options.add_argument("--headless")
+
+        browser = webdriver.Chrome(options=options)
     else:
         raise NotImplementedError()
 
@@ -66,7 +73,26 @@ def wait_until_clickable_and_click(browser, by_what, value):
         raise NotImplementedError()
 
 
-def from_main_menu_to_game():
+def save_screenshot(browser, fname='filename.png'):
+    fname, ext = fname.split('.')
+    if osp.isfile(f"{fname}.{ext}"):
+        count = 2
+        curr_fname = f"{fname}{count}.{ext}"
+        while osp.isfile(curr_fname):
+            count += 1
+            curr_fname = f"{fname}{count}.{ext}"
+
+        fname = curr_fname
+
+    try:
+        element = browser.find_element_by_id('gamerenderer')
+        with open(fname, 'wb') as f:
+            f.write(element.screenshot_as_png)
+    except Exception as e:
+        print("ERROR: failed to save screenshot ->", str(e))
+
+
+def from_main_menu_to_game(headless=False):
     """ Create a browser, login and queue up for a game. """
     browser = setup_browser()
 
