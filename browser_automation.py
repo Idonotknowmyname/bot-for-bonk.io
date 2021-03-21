@@ -25,7 +25,7 @@ BONK_URL = "http://bonk.io"
 DELAY = 5
 
 
-def setup_browser(driver_type="htmlUnit", headless=False):
+def setup_browser(driver_type="firefox", headless=False):
     """ Create a webdriver instance browser """
     if driver_type == "chrome":
         options = ChromeOptions()
@@ -43,8 +43,7 @@ def setup_browser(driver_type="htmlUnit", headless=False):
         browser = webdriver.Firefox(options=options)
     
     elif driver_type == "htmlUnit":
-        driver = connect(HTMLUNIT, server="http://<selenium_server>:4444")
-
+        driver = webdriver.Remote(desired_capabilities=webdriver.DesiredCapabilities.HTMLUNIT)
         # driver = webdriver.Remote(desired_capabilities=webdriver.DesiredCapabilities.HTMLUNIT)
         # driver.set_window_size(1080, 1080)
     else:
