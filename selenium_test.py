@@ -103,6 +103,7 @@ try:
 
     for i in range(1000):
         t = time.time()
+        element.screenshot_as_png
         browser.get_screenshot_as_png()
         print(time.time()-t)
     print()

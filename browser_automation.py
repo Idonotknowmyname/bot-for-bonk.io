@@ -3,7 +3,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
 import time
 import os
@@ -21,15 +22,22 @@ BONK_URL = "http://bonk.io"
 DELAY = 5
 
 
-def setup_browser(driver_type="chrome", headless=False):
+def setup_browser(driver_type="firefox", headless=False):
     """ Create a webdriver instance browser """
     if driver_type == "chrome":
-        options = Options()
+        options = ChromeOptions()
         if headless:
             options.add_argument("--headless")
             options.add_argument("--window-size=1080,1080")
 
         browser = webdriver.Chrome(options=options)
+    elif driver_type == "firefox":
+        options = FirefoxOptions()
+        if headless:
+            options.add_argument("--headless")
+            options.add_argument("--window-size=1080,1080")
+
+        browser = webdriver.Firefox(options=options)
     else:
         raise NotImplementedError()
 

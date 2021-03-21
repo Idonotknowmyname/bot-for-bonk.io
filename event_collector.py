@@ -128,9 +128,9 @@ class EventCollector:
             print(f"WARNING: error when finding the game rendered element:", str(e))
 
         try:
-            # start_time = time.time()
+            start_time = time.time()
             png_bytes = element.screenshot_as_png
-            # print(f"Taking screenshot took {time.time() - start_time:.4f}s")
+            print(f"Taking screenshot took {time.time() - start_time:.4f}s")
         except AttributeError as e:
             if 'NoneType' in str(e):
                 print(f"WARNING: got error when trying to take screenshot: {str(e)}")
