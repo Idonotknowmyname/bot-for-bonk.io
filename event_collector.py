@@ -7,6 +7,7 @@ from enum import Enum
 
 from PIL import Image
 import numpy as np
+from cv_pipeline import run_cv_pipeline
 
 
 def get_timed_element_from_last_n_seconds(n_seconds, timed_elements):
@@ -55,11 +56,12 @@ class Event(str, Enum):
 
 CV_PIPELINE = {"states": {
     "is_dead": lambda x: False,
-    "game_over": lambda x: False,
-    "player_wins": lambda x: False,
-    "player_loses": lambda x: False,
+    # "game_over": lambda x: False,
+    # "player_wins": lambda x: False,
+    # "player_loses": lambda x: False,
 },
     "masks": {
+        "position_rect": None
 }}
 
 # This parameters dictates how long in seconds the event is_dead should be active for before deeming the player dead
@@ -105,6 +107,7 @@ class EventCollector:
         self.accumulated_events = []
 
         self.last_collected = None
+        self.last_collected_frame = None
 
     def run_thread(self):
         """ Method to be run as a tread continuously, at more or less fixed time intervals it collects the screenshot, runs the CV pipeline and it updates the internal list of events to report. """
@@ -112,12 +115,18 @@ class EventCollector:
 
         while not self.stop:
             if time.time() - self.last_collected > self.collect_every:
-                self._collect()
+                t, frame = self._collect()
                 self.last_collected = time.time()
 
-                self._run_cv_pipeline()
+                states, masks = self._run_cv_pipeline(t, frame)
 
-                self._update_internal_event_list()
+                # Update all image observations
+                with self.frames_lock:
+                    self.previous_frames.append(frame)
+                    for key in masks.keys():
+                        self.previous_masks[key].append(masks[key])
+
+                self._update_internal_event_list(states)
 
     def _collect(self):
         try:
@@ -128,9 +137,10 @@ class EventCollector:
             print(f"WARNING: error when finding the game rendered element:", str(e))
 
         try:
-            start_time = time.time()
+            # start_time = time.time()
             png_bytes = element.screenshot_as_png
-            print(f"Taking screenshot took {time.time() - start_time:.4f}s")
+            time_captured = time.time()
+            # print(f"Taking screenshot took {time.time() - start_time:.4f}s")
         except AttributeError as e:
             if 'NoneType' in str(e):
                 print(f"WARNING: got error when trying to take screenshot: {str(e)}")
@@ -138,35 +148,44 @@ class EventCollector:
                 raise e
 
         # start_time = time.time()
-        arr = np.array(Image.open(io.BytesIO(png_bytes)))
+        arr = np.array(Image.open(io.BytesIO(png_bytes)))[:, :, :3]
+        # print(f"Captured a numpy array of shape: {arr.shape}")
         # print(f"Loading the image in a numpy array took {time.time() - start_time:.3f}s")
-        with self.frames_lock:
-            self.previous_frames.append((time.time(), arr))
 
-    def _run_cv_pipeline(self):
-        t, last_frame = self.previous_frames[-1]
+        return time_captured, arr
 
-        for status_name, status_fn in CV_PIPELINE['states'].items():
-            status_flag = status_fn(last_frame)
-            self.previous_states[status_name].append((t, status_flag))
+    def _run_cv_pipeline(self, t, last_frame):
 
-        with self.frames_lock:
-            for mask_name, mask_fn in CV_PIPELINE['masks'].items():
-                mask = mask_fn(last_frame)
-                self.previous_masks[mask].append((t, mask))
+        pipeline_result = run_cv_pipeline(last_frame)
+
+        # is_dead = pipeline_result['states']['is_dead']
+        # self.previous_states['is_dead'].append((t, is_dead))
+
+        # pos_rect = pipeline_result['masks']['position_rect']
+        states = {}
+        for status_name, _ in CV_PIPELINE['states'].items():
+            status_flag = pipeline_result['states'][status_name]
+            states[status_name] = (t, status_flag)
+
+        masks = {}
+        for mask_name, _ in CV_PIPELINE['masks'].items():
+            mask = pipeline_result['masks'][mask_name]
+            masks[mask_name] = (t, mask)
+
+        return states, masks
 
     def get_last_n_frames(self):
         """ Returns the last self.n_frames (contains the time when it was retrieved in seconds) collected and the last n masks generated for each mask function in CV_PIPELINE on the past frames """
         frames = None
         mask_frames = None
 
-        while len(self.previous_frames) == 0:
+        while len(self.previous_frames) == 0 or len(self.previous_masks[list(self.previous_masks.keys())[0]]) == 0:
             print("Frames buffer still empty, waiting...")
             time.sleep(0.1)
 
         with self.frames_lock:
             frames = self.previous_frames[-self.n_frames:]
-            mask_frames = {mask_name: vals[-self.n_frames:] for mask_name, vals in self.previous_masks}
+            mask_frames = {mask_name: vals[-self.n_frames:] for mask_name, vals in self.previous_masks.items()}
 
             self.previous_frames = [*frames]
 
@@ -183,11 +202,14 @@ class EventCollector:
 
         return events
 
-    def _update_internal_event_list(self):
+    def _update_internal_event_list(self, states):
 
         events = []
         state_switch = {}
         now = time.time()
+
+        for status_name in states.keys():
+            self.previous_states[status_name].append(states[status_name])
 
         # For each of the states (boolean) detected by the CV pipeline, do an average over the last N_SECONDS_STATUS_AVERAGE seconds and potentially register a state switch
         for status_name in CV_PIPELINE['states'].keys():
@@ -234,7 +256,7 @@ if __name__ == "__main__":
     import browser_automation as ba
     import cv2 as cv
 
-    browser = ba.from_main_menu_to_game(headless=True)
+    browser = ba.from_main_menu_to_game(driver_type="firefox", headless=True)
 
     ec = EventCollector(browser, collect_every=.01, n_frames=3)
 
@@ -244,9 +266,16 @@ if __name__ == "__main__":
 
     try:
         while True:
-            frames, mask = ec.get_last_n_frames()
-            print(frames[-1][0])
-            cv.imshow("screen", frames[-1][1])
+            frames, masks = ec.get_last_n_frames()
+            last_frame = frames[-1]
+            pos_rect_mask = masks['position_rect'][-1][1]
+            # print(frames[-1][0])
+
+            superposed_frame = np.expand_dims(np.where(pos_rect_mask == 255, 0, 1), axis=-1) * last_frame
+            # print(f"pos_rect_mask: min = {pos_rect_mask.min()}, max = {pos_rect_mask.max()}, mean = {pos_rect_mask.mean()}")
+
+            print(f"last_frame.shape = {last_frame.shape}")
+            cv.imshow("screen", superposed_frame.astype(np.uint8))
             cv.waitKey(1)
             # time.sleep(1.)
 
