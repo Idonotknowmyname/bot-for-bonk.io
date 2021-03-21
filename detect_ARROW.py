@@ -157,7 +157,7 @@ def find_vertical_left(left,template):
 def find_corner_right(top_right_corner,template):
     found = None
     for scale in np.linspace(1, 1,1)[::-1]:
-        for rotation in np.linspace(0,-90,6 ):
+        for rotation in np.linspace(0,-90,5 ):
             # resize the image according to the scale, and keep track
             # of the ratio of the resizing
             resized = imutils.resize(template, width = int(template.shape[1] * scale))
@@ -197,7 +197,7 @@ def find_corner_right(top_right_corner,template):
 def find_corner_left(top_left_corner,template):
     found = None
     for scale in np.linspace(1, 1,1)[::-1]:
-        for rotation in np.linspace(0,90,6 ):
+        for rotation in np.linspace(0,90,5 ):
             # resize the image according to the scale, and keep track
             # of the ratio of the resizing
             resized = imutils.resize(template, width = int(template.shape[1] * scale))
