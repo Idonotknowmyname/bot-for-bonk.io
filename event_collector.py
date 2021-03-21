@@ -8,27 +8,6 @@ from enum import Enum
 from PIL import Image
 import numpy as np
 
-CV_PIPELINE = {"states": {
-    "is_dead": None,
-    "game_over": None,
-    "player_wins": None,
-    "player_loses": None,
-},
-    "masks": {
-}}
-
-# This parameters dictates how long in seconds the event is_dead should be active for before deeming the player dead
-IS_DEAD_N_SECONDS = 1.
-
-# This parameters dictates how long in seconds the event game_over should be active for before deeming the player game over
-IS_GAME_OVER_N_SECONDS = 1.
-
-# This parameter represents the number across which to average the past values of a status to get the truth value and detect value switches robustly
-N_SECONDS_STATUS_AVERAGE = 1.
-
-# How long in second, after a confirmed robust (smoothed) state change, another one can occur (to avoid states switching too fast and there being bullshit events)
-STATES_UPDATE_COOLDOWN = 0.3
-
 
 def get_timed_element_from_last_n_seconds(n_seconds, timed_elements):
     now = time.time()
@@ -70,8 +49,30 @@ class Event(str, Enum):
     PLAYER_DIED = 'player_died'
     GAME_ENDED = 'game_ended'
     PLAYER_WON = 'player_won'
-    PLAYER_LOST = 'player_won'
+    PLAYER_LOST = 'player_lost'
     GAME_STARTED = 'game_started'
+
+
+CV_PIPELINE = {"states": {
+    "is_dead": lambda x: False,
+    "game_over": lambda x: False,
+    "player_wins": lambda x: False,
+    "player_loses": lambda x: False,
+},
+    "masks": {
+}}
+
+# This parameters dictates how long in seconds the event is_dead should be active for before deeming the player dead
+IS_DEAD_N_SECONDS = 1.
+
+# This parameters dictates how long in seconds the event game_over should be active for before deeming the player game over
+IS_GAME_OVER_N_SECONDS = 1.
+
+# This parameter represents the number across which to average the past values of a status to get the truth value and detect value switches robustly
+N_SECONDS_STATUS_AVERAGE = 1.
+
+# How long in second, after a confirmed robust (smoothed) state change, another one can occur (to avoid states switching too fast and there being bullshit events)
+STATES_UPDATE_COOLDOWN = 0.3
 
 
 class EventCollector:
@@ -103,22 +104,20 @@ class EventCollector:
 
         self.accumulated_events = []
 
+        self.last_collected = None
+
     def run_thread(self):
         """ Method to be run as a tread continuously, at more or less fixed time intervals it collects the screenshot, runs the CV pipeline and it updates the internal list of events to report. """
-        last_collected = -1e9
+        self.last_collected = -1e9
 
         while not self.stop:
-            if time.time() - last_collected > self.collect_every:
+            if time.time() - self.last_collected > self.collect_every:
                 self._collect()
-                last_collected = time.time()
+                self.last_collected = time.time()
 
                 self._run_cv_pipeline()
 
                 self._update_internal_event_list()
-
-    def get_events(self):
-        """ Main method to access the events produce by this collector"""
-        raise NotImplementedError()
 
     def _collect(self):
         try:
@@ -136,7 +135,7 @@ class EventCollector:
 
         for status_name, status_fn in CV_PIPELINE['states'].items():
             status_flag = status_fn(last_frame)
-            self.previous_states[event_name].append((t, status_flag))
+            self.previous_states[status_name].append((t, status_flag))
 
         with self.frames_lock:
             for mask_name, mask_fn in CV_PIPELINE['masks'].items():
@@ -191,23 +190,46 @@ class EventCollector:
         # Produces new events by looking at the states_switch object
         with self.states_lock:
             # Check if the player died
-            if state_switch.get('is_dead', default=False):
+            if state_switch.get('is_dead', False):
                 events.append(Event.PLAYER_DIED)
 
             # Check if bonk.io game ended for everyone
-            if state_switch.get('game_over', default=False):
+            if state_switch.get('game_over', False):
                 events.append(Event.GAME_OVER)
 
             # Check if bonk.io game just started for everyone
-            if not state_switch.get('game_over', default=True):
+            if not state_switch.get('game_over', True):
                 events.append(Event.GAME_STARTED)
 
             # Check if the screen with the player winning just showed up
-            if state_switch.get('player_wins', default=False):
+            if state_switch.get('player_wins', False):
                 events.append(Event.PLAYER_WON)
 
             # Check if the screen with the opponent winning just showed up
-            if state_switch.get('player_loses', default=False):
+            if state_switch.get('player_loses', False):
                 events.append(Event.PLAYER_LOST)
 
         self.accumulated_events.extend(events)
+
+
+if __name__ == "__main__":
+    import browser_automation as ba
+    browser = ba.from_main_menu_to_game(headless=False)
+
+    ec = EventCollector(browser, collect_every=.001, n_frames=1)
+
+    t = threading.Thread(target=ec.run_thread())
+
+    t.start()
+
+    try:
+        while True:
+            time.sleep(1.)
+            frames = ec.get_last_n_frames()
+            print(frames[-1])
+    except:
+        ec.stop = True
+        try:
+            t.join(timeout=3)
+        except:
+            raise
