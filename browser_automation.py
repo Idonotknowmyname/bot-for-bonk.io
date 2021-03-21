@@ -27,6 +27,7 @@ def setup_browser(driver_type="chrome", headless=False):
         options = Options()
         if headless:
             options.add_argument("--headless")
+            options.add_argument("--window-size=1080,1080")
 
         browser = webdriver.Chrome(options=options)
     else:
@@ -62,15 +63,20 @@ def wait_until_clickable(browser, by_what, value):
         print("Loading took too much time!")
 
 
-def wait_until_clickable_and_click(browser, by_what, value):
+def wait_until_clickable_and_click(browser, by_what, value, alt_click=False):
     """ Select an element, wait for it to be clickable and then click """
     wait_until_clickable(browser, by_what, value)
     if by_what == By.XPATH:
-        browser.find_element_by_xpath(value).click()
+        element = browser.find_element_by_xpath(value)
     elif by_what == By.ID:
-        browser.find_element_by_id(value).click()
+        element = browser.find_element_by_id(value)
     else:
         raise NotImplementedError()
+
+    if alt_click:
+        browser.execute_script("arguments[0].click();", element)
+    else:
+        element.click()
 
 
 def save_screenshot(browser, fname='filename.png'):
@@ -94,7 +100,7 @@ def save_screenshot(browser, fname='filename.png'):
 
 def from_main_menu_to_game(headless=False):
     """ Create a browser, login and queue up for a game. """
-    browser = setup_browser()
+    browser = setup_browser(headless=headless)
 
     # Remove cookies
     time.sleep(0.1)
@@ -109,7 +115,7 @@ def from_main_menu_to_game(headless=False):
     switch_to_frame(browser, 'maingameframe')
 
     # Login/Register button
-    wait_until_clickable_and_click(browser,  By.ID, 'guestOrAccountContainer_accountButton')
+    wait_until_clickable_and_click(browser,  By.ID, 'guestOrAccountContainer_accountButton', alt_click=True)
 
     # enter username and password
     time.sleep(0.1)
