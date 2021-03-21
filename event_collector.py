@@ -121,12 +121,25 @@ class EventCollector:
 
     def _collect(self):
         try:
+            # start_time = time.time()
             element = self.browser.find_element_by_id('gamerenderer')
+            # print(f"Collecting the screen took {time.time() - start_time:.4f}s")
         except Exception as e:
             print(f"WARNING: error when finding the game rendered element:", str(e))
 
-        buff = io.BytesIO(element.screenshot_as_png)
-        arr = np.array(Image.open(buff))
+        try:
+            # start_time = time.time()
+            png_bytes = element.screenshot_as_png
+            # print(f"Taking screenshot took {time.time() - start_time:.4f}s")
+        except AttributeError as e:
+            if 'NoneType' in str(e):
+                print(f"WARNING: got error when trying to take screenshot: {str(e)}")
+            else:
+                raise e
+
+        # start_time = time.time()
+        arr = np.array(Image.open(io.BytesIO(png_bytes)))
+        # print(f"Loading the image in a numpy array took {time.time() - start_time:.3f}s")
         with self.frames_lock:
             self.previous_frames.append((time.time(), arr))
 
@@ -146,6 +159,11 @@ class EventCollector:
         """ Returns the last self.n_frames (contains the time when it was retrieved in seconds) collected and the last n masks generated for each mask function in CV_PIPELINE on the past frames """
         frames = None
         mask_frames = None
+
+        while len(self.previous_frames) == 0:
+            print("Frames buffer still empty, waiting...")
+            time.sleep(0.1)
+
         with self.frames_lock:
             frames = self.previous_frames[-self.n_frames:]
             mask_frames = {mask_name: vals[-self.n_frames:] for mask_name, vals in self.previous_masks}
@@ -214,20 +232,27 @@ class EventCollector:
 
 if __name__ == "__main__":
     import browser_automation as ba
-    browser = ba.from_main_menu_to_game(headless=False)
+    import cv2 as cv
 
-    ec = EventCollector(browser, collect_every=.001, n_frames=1)
+    browser = ba.from_main_menu_to_game(headless=True)
 
-    t = threading.Thread(target=ec.run_thread())
+    ec = EventCollector(browser, collect_every=.01, n_frames=3)
+
+    t = threading.Thread(target=ec.run_thread)
 
     t.start()
 
     try:
         while True:
-            time.sleep(1.)
-            frames = ec.get_last_n_frames()
-            print(frames[-1])
-    except:
+            frames, mask = ec.get_last_n_frames()
+            print(frames[-1][0])
+            cv.imshow("screen", frames[-1][1])
+            cv.waitKey(1)
+            # time.sleep(1.)
+
+    except KeyboardInterrupt:
+        browser.close()
+        raise e
         ec.stop = True
         try:
             t.join(timeout=3)
