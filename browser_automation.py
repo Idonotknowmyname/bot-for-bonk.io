@@ -38,9 +38,9 @@ def setup_browser(driver_type="firefox", headless=False):
         options = FirefoxOptions()
         if headless:
             options.add_argument("--headless")
-            options.add_argument("--window-size=1080,1080")
 
         browser = webdriver.Firefox(options=options)
+        browser.set_window_size(1080,1080)
     
     elif driver_type == "htmlUnit":
         driver = webdriver.Remote(desired_capabilities=webdriver.DesiredCapabilities.HTMLUNIT)

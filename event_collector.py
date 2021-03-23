@@ -7,7 +7,7 @@ from enum import Enum
 
 from PIL import Image
 import numpy as np
-from cv_pipeline import run_cv_pipeline
+from cv_pipeline import cvPipeline
 
 
 def get_timed_element_from_last_n_seconds(n_seconds, timed_elements):
@@ -109,6 +109,8 @@ class EventCollector:
         self.last_collected = None
         self.last_collected_frame = None
 
+        self.cv_pipeline = cvPipeline()
+
     def run_thread(self):
         """ Method to be run as a tread continuously, at more or less fixed time intervals it collects the screenshot, runs the CV pipeline and it updates the internal list of events to report. """
         self.last_collected = -1e9
@@ -117,9 +119,9 @@ class EventCollector:
             if time.time() - self.last_collected > self.collect_every:
                 t, frame = self._collect()
                 self.last_collected = time.time()
-
+                ttt = time.time()
                 states, masks = self._run_cv_pipeline(t, frame)
-
+                # print(f'took {time.time()-ttt} for vision pipeline')
                 # Update all image observations
                 with self.frames_lock:
                     self.previous_frames.append(frame)
@@ -156,7 +158,7 @@ class EventCollector:
 
     def _run_cv_pipeline(self, t, last_frame):
 
-        pipeline_result = run_cv_pipeline(last_frame)
+        pipeline_result = self.cv_pipeline.run(last_frame)
 
         # is_dead = pipeline_result['states']['is_dead']
         # self.previous_states['is_dead'].append((t, is_dead))
@@ -274,7 +276,7 @@ if __name__ == "__main__":
             superposed_frame = np.expand_dims(np.where(pos_rect_mask == 255, 0, 1), axis=-1) * last_frame
             # print(f"pos_rect_mask: min = {pos_rect_mask.min()}, max = {pos_rect_mask.max()}, mean = {pos_rect_mask.mean()}")
 
-            print(f"last_frame.shape = {last_frame.shape}")
+            # print(f"last_frame.shape = {last_frame.shape}")
             cv.imshow("screen", superposed_frame.astype(np.uint8))
             cv.waitKey(1)
             # time.sleep(1.)
