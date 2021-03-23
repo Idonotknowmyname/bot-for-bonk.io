@@ -6,14 +6,14 @@ import numpy as np
 
 class cvPipeline():
     def __init__(self):
-        self.template_min_scale = 0.01
-        self.template_max_scale = 0.1
-        self.templates_n_tries = 13
+        self.template_min_scale = 0.04
+        self.template_max_scale =  0.09
+        self.templates_n_tries = 8
 
         self.template_matching_score_threshold = .6
         self.break_seach_score_threshold = .7
 
-        self.template = cv.cvtColor(cv.imread('./Images/skin.png'), cv.COLOR_BGR2GRAY)
+        self.template = cv.cvtColor(cv.imread('./Images/skin_new.png'), cv.COLOR_BGR2GRAY)
         self.TH, self.TW = self.template.shape
         self.sphere_search_scales = np.linspace(self.template_min_scale, self.template_max_scale, self.templates_n_tries)
 
@@ -42,8 +42,8 @@ class cvPipeline():
                 break
         
         max_score, max_loc, scale, mask = found
-        self.sphere_search_scales = [k for k, v in sorted(order.items(), key=lambda item: item[1])]
-        print([f'scale: {k} score; {v}' for k, v in sorted(order.items(), key=lambda item: item[1])][0])
+        self.sphere_search_scales = [k for k, v in sorted(order.items(), key=lambda item: -item[1])]
+        print([f'scale: {k} score; {v}' for k, v in sorted(order.items(), key=lambda item: -item[1])][0])
         if max_score > self.template_matching_score_threshold:
             # Template found on screen
             on_screen = True
