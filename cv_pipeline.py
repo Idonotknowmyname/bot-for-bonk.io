@@ -6,17 +6,28 @@ import numpy as np
 
 class cvPipeline():
     def __init__(self):
+        #self finding HYPERPARAMS
         self.template_min_scale = 0.03
         self.template_max_scale =  0.09
         self.templates_n_tries = 8
-
         self.template_matching_score_threshold = .6
         self.break_seach_score_threshold = .7
-
         self.template = cv.cvtColor(cv.imread('./Images/skin_new.png'), cv.COLOR_BGR2GRAY)
         self.TH, self.TW = self.template.shape
         self.sphere_search_scales = np.linspace(self.template_min_scale, self.template_max_scale, self.templates_n_tries)
 
+        #arrow finding HYPERPARAMS
+        self.lines_width = 30#top and vertical line width (should be same as width of arrow)
+        self.lines_cut_corners = 40# how much close to the corner should you ignore (because you will deal with corners by themselves)
+        self.corners = 55#how big are the corners? a cornersXcorners square, should be bigger than lines_width
+        self.arrow_min_scale = 0.8
+        self.arrow_max_scale = 1
+        self.arrow_n_tries = 2  
+        self.arrow_corner_rotations = 4
+        self.ARROW_template_matching_score_threshold = .6
+        self.arrow_template =  cv2.cvtColor(cv2.imread('./Images/arrow.png'),cv.COLOR_BGR2GRAY)
+        self.arrow_TH, self.arrow_TW) = self.arrow_template.shape[:2]
+    
     def to_gray_scale(self,mat):
         gray = cv.cvtColor(mat, cv.COLOR_BGR2GRAY)
 
@@ -59,7 +70,56 @@ class cvPipeline():
 
 
     def arrow_is_on_screen(self,gray):
-        return False, None
+        og_W = gray.shape[1]
+        of_H = gray.shape[0]
+        #get pieces
+        top_row = gray[:lines_width,lines_cut_corners:-lines_cut_corners]#keep 30 pixels from top border, discard 40 pizels from right and from left border
+        right_row= gray[lines_cut_corners:,-lines_width:]#discard 40 pixels from top border,keep 30 pixels from the right border
+        left_row = gray[lines_cut_corners:,:lines_width] #discard 40 pixels from top border,keep 30 pixels from the left border
+        top_right_corner=gray[:corners,-corners:]
+        top_left_corner = gray[:corners,:corners]
+
+        #find near edges
+        found = None
+        targets = {0:top_row,90:right_row,-90:left_row}#mapt the rotation for the arrow with the correct art of image
+        for rotation in [0,90,-90]
+            arrow_template = imutils.rotate(self.arrow_template,rotation)
+            for scale in np.linspace(self.arrow_min_scale, self.arrow_max_scale,self.arrow_n_tries)[::-1]:
+                resized = imutils.resize(arrow_template, width = int(self.arrow_template.shape[1] * scale))
+
+                # matching to find the template in the image
+                result = cv2.matchTemplate(targets[rotation], resized, cv2.TM_CCOEFF_NORMED)
+                (minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(result)
+                if found is None or maxVal > found[0]:
+                    found = (maxVal, maxLoc, scale, rotation)
+                #TODO BREAK HERE LOOP IF OVER THRESHOLD
+
+        #find in corners
+        for rotation in np.linspace(-90,90,self.arrow_corner_rotations*2 ):
+            arrow_template = imutils.rotate(self.arrow_template,rotation)
+            if rotation<0:
+                target = top_right_corner
+                corner_type = -1
+            else:
+                corner_type = 1
+                target = top_left_corner
+            for scale in np.linspace(self.arrow_min_scale, self.arrow_max_scale,self.arrow_n_tries)[::-1]:
+                resized = imutils.resize(arrow_template, width = int(arrow_template.shape[1] * scale))
+                result = cv2.matchTemplate(target, resized, cv2.TM_CCOEFF_NORMED)
+                (minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(result)
+                if found is None or maxVal > found[0]:
+                    found = (maxVal, maxLoc, scale,corner_type)
+        (maxScore, maxLoc, scale,found_where) = found
+        adjust_map = {0:(self.lines_cut_corners,0),-90:(0,self.lines_cut_corners),90:(self.arrow_TW-self.lines_width,self.lines_cut_corners),-1:(self.arrow_TW-self.corners,0),1:(0,0)}
+        adjust_x, adjust_y = adjust_map[found_where]
+        if max_score > self.ARROW_template_matching_score_threshold:
+            arrow_on_screen = True
+            x_start, y_start = int(max_loc[0]+adjust_x), int(max_loc[1]+adjust_y)
+            x_end, y_end = int(max_loc[0]+adjust_x + self.arrow_TW * scale), int(max_loc[1] +adjust_y+ self.arrow_TH * scale)
+            rectangle = (x_start, y_start, x_end, y_end)
+            return arrow_on_screen, rectangle
+        else:
+            return False, None
 
 
     def is_dead(self,mat):
