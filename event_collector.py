@@ -257,7 +257,7 @@ if __name__ == "__main__":
     import browser_automation as ba
     import cv2 as cv
 
-    browser = ba.from_main_menu_to_game(driver_type="firefox", headless=True)
+    browser = ba.from_main_menu_to_game(driver_type="firefox", headless=False)
 
     ec = EventCollector(browser, collect_every=.01, n_frames=3)
 

@@ -118,7 +118,7 @@ def find_vertical_right(right,template):
 def find_vertical_left(left,template):
     #left
     found = None
-    left_template = imutils.rotate(template,90)
+    left_template = imutils.rotate(template,-90)
     #left
     for scale in np.linspace(0.8, 1,2)[::-1]:
         # resize the image according to the scale, and keep track

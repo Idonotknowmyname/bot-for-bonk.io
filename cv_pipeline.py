@@ -24,9 +24,9 @@ class cvPipeline():
         self.arrow_max_scale = 1
         self.arrow_n_tries = 2  
         self.arrow_corner_rotations = 4
-        self.ARROW_template_matching_score_threshold = .6
-        self.arrow_template =  cv2.cvtColor(cv2.imread('./Images/arrow.png'),cv.COLOR_BGR2GRAY)
-        self.arrow_TH, self.arrow_TW) = self.arrow_template.shape[:2]
+        self.ARROW_template_matching_score_threshold = .7
+        self.arrow_template =  cv.Canny(cv.cvtColor(cv.imread('./Images/arrow.png'),cv.COLOR_BGR2GRAY),50,250)
+        self.arrow_TH, self.arrow_TW = self.arrow_template.shape[:2]
     
     def to_gray_scale(self,mat):
         gray = cv.cvtColor(mat, cv.COLOR_BGR2GRAY)
@@ -73,23 +73,32 @@ class cvPipeline():
         og_W = gray.shape[1]
         of_H = gray.shape[0]
         #get pieces
-        top_row = gray[:lines_width,lines_cut_corners:-lines_cut_corners]#keep 30 pixels from top border, discard 40 pizels from right and from left border
-        right_row= gray[lines_cut_corners:,-lines_width:]#discard 40 pixels from top border,keep 30 pixels from the right border
-        left_row = gray[lines_cut_corners:,:lines_width] #discard 40 pixels from top border,keep 30 pixels from the left border
-        top_right_corner=gray[:corners,-corners:]
-        top_left_corner = gray[:corners,:corners]
+        top_row = cv.Canny(gray[:self.lines_width,self.lines_cut_corners:-self.lines_cut_corners],50,250)#keep 30 pixels from top border, discard 40 pizels from right and from left border
+        right_row= cv.Canny(gray[self.lines_cut_corners:,-self.lines_width:],50,250)#discard 40 pixels from top border,keep 30 pixels from the right border
+        left_row = cv.Canny(gray[self.lines_cut_corners:,:self.lines_width],50,250) #discard 40 pixels from top border,keep 30 pixels from the left border
+        top_right_corner=cv.Canny(gray[:self.corners,-self.corners:],50,250)
+        top_left_corner = cv.Canny(gray[:self.corners,:self.corners],50,250)
 
         #find near edges
         found = None
-        targets = {0:top_row,90:right_row,-90:left_row}#mapt the rotation for the arrow with the correct art of image
-        for rotation in [0,90,-90]
+        targets = {0:top_row,-90:right_row,90:left_row}#mapt the rotation for the arrow with the correct art of image
+        for rotation in [0,90,-90]:
             arrow_template = imutils.rotate(self.arrow_template,rotation)
             for scale in np.linspace(self.arrow_min_scale, self.arrow_max_scale,self.arrow_n_tries)[::-1]:
                 resized = imutils.resize(arrow_template, width = int(self.arrow_template.shape[1] * scale))
 
                 # matching to find the template in the image
-                result = cv2.matchTemplate(targets[rotation], resized, cv2.TM_CCOEFF_NORMED)
-                (minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(result)
+                result = cv.matchTemplate(targets[rotation], resized, cv.TM_CCOEFF_NORMED)
+                (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(result)
+                if False:
+                    print(f'Scaling :{scale},ROTATION: {rotation}, maxVal: {maxVal}')
+                    # draw a bounding box around the detected region
+                    clone = np.dstack([targets[rotation], targets[rotation], targets[rotation]])
+                    cv.rectangle(clone, (maxLoc[0], maxLoc[1]),
+                        (maxLoc[0] + resized.shape[1], maxLoc[1] + resized.shape[0]), (0, 0, 255), 2)
+                    cv.imshow("Visualize", clone)
+                    cv.imshow('vis',resized)
+                    cv.waitKey(0)
                 if found is None or maxVal > found[0]:
                     found = (maxVal, maxLoc, scale, rotation)
                 #TODO BREAK HERE LOOP IF OVER THRESHOLD
@@ -105,14 +114,14 @@ class cvPipeline():
                 target = top_left_corner
             for scale in np.linspace(self.arrow_min_scale, self.arrow_max_scale,self.arrow_n_tries)[::-1]:
                 resized = imutils.resize(arrow_template, width = int(arrow_template.shape[1] * scale))
-                result = cv2.matchTemplate(target, resized, cv2.TM_CCOEFF_NORMED)
-                (minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(result)
+                result = cv.matchTemplate(target, resized, cv.TM_CCOEFF_NORMED)
+                (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(result)
                 if found is None or maxVal > found[0]:
                     found = (maxVal, maxLoc, scale,corner_type)
-        (maxScore, maxLoc, scale,found_where) = found
+        (maxScore, max_loc, scale,found_where) = found
         adjust_map = {0:(self.lines_cut_corners,0),-90:(0,self.lines_cut_corners),90:(self.arrow_TW-self.lines_width,self.lines_cut_corners),-1:(self.arrow_TW-self.corners,0),1:(0,0)}
         adjust_x, adjust_y = adjust_map[found_where]
-        if max_score > self.ARROW_template_matching_score_threshold:
+        if maxScore > self.ARROW_template_matching_score_threshold:
             arrow_on_screen = True
             x_start, y_start = int(max_loc[0]+adjust_x), int(max_loc[1]+adjust_y)
             x_end, y_end = int(max_loc[0]+adjust_x + self.arrow_TW * scale), int(max_loc[1] +adjust_y+ self.arrow_TH * scale)
@@ -159,3 +168,8 @@ class cvPipeline():
         },
             "info": {}
         }
+
+if __name__=='__main__':
+    c = cvPipeline()
+    gray = cv.imread('./Images/testArrow_5.png',0)
+    c.arrow_is_on_screen(gray)
