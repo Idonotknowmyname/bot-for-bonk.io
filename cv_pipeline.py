@@ -6,7 +6,7 @@ import numpy as np
 
 class cvPipeline():
     def __init__(self):
-        self.template_min_scale = 0.04
+        self.template_min_scale = 0.03
         self.template_max_scale =  0.09
         self.templates_n_tries = 8
 
@@ -43,7 +43,7 @@ class cvPipeline():
         
         max_score, max_loc, scale, mask = found
         self.sphere_search_scales = [k for k, v in sorted(order.items(), key=lambda item: -item[1])]
-        print([f'scale: {k} score; {v}' for k, v in sorted(order.items(), key=lambda item: -item[1])][0])
+        # print([f'scale: {k} score; {v}' for k, v in sorted(order.items(), key=lambda item: -item[1])][0])
         if max_score > self.template_matching_score_threshold:
             # Template found on screen
             on_screen = True

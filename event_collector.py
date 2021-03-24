@@ -121,7 +121,7 @@ class EventCollector:
                 self.last_collected = time.time()
                 ttt = time.time()
                 states, masks = self._run_cv_pipeline(t, frame)
-                # print(f'took {time.time()-ttt} for vision pipeline')
+                print(f'VISION: {time.time()-ttt:.5f}')
                 # Update all image observations
                 with self.frames_lock:
                     self.previous_frames.append(frame)
@@ -132,17 +132,16 @@ class EventCollector:
 
     def _collect(self):
         try:
-            # start_time = time.time()
             element = self.browser.find_element_by_id('gamerenderer')
-            # print(f"Collecting the screen took {time.time() - start_time:.4f}s")
         except Exception as e:
             print(f"WARNING: error when finding the game rendered element:", str(e))
 
         try:
-            # start_time = time.time()
+            start_time = time.time()
             png_bytes = element.screenshot_as_png
             time_captured = time.time()
-            # print(f"Taking screenshot took {time.time() - start_time:.4f}s")
+            print(f"Screenshot {time.time() - start_time:.5f}",end=' | ')
+            # print()
         except AttributeError as e:
             if 'NoneType' in str(e):
                 print(f"WARNING: got error when trying to take screenshot: {str(e)}")
@@ -268,6 +267,7 @@ if __name__ == "__main__":
 
     try:
         while True:
+            # timing = time.time()
             frames, masks = ec.get_last_n_frames()
             last_frame = frames[-1]
             pos_rect_mask = masks['position_rect'][-1][1]
@@ -279,7 +279,8 @@ if __name__ == "__main__":
             # print(f"last_frame.shape = {last_frame.shape}")
             cv.imshow("screen", superposed_frame.astype(np.uint8))
             cv.waitKey(1)
-            # time.sleep(1.)
+            time.sleep(1.)
+            # print(f'TOTAL TIME {time.time()-timing}')
 
     except KeyboardInterrupt:
         browser.close()
