@@ -7,9 +7,10 @@ import numpy as np
 
 class cvPipeline():
     def __init__(self):
+        self.debug = True  # plot for debugging, must be false when running
         # self finding HYPERPARAMS
-        self.template_min_scale = 0.03
-        self.template_max_scale = 0.09
+        self.template_min_scale = 0.04
+        self.template_max_scale = 0.1
         self.templates_n_tries = 8
         self.template_matching_score_threshold = .6
         self.break_seach_score_threshold = .7
@@ -18,15 +19,16 @@ class cvPipeline():
         self.sphere_search_scales = np.linspace(self.template_min_scale, self.template_max_scale, self.templates_n_tries)
 
         # arrow finding HYPERPARAMS
-        self.lines_width = 30  # top and vertical line width (should be same as width of arrow)
+        self.lines_width = 40  # top and vertical line width (should be same as width of arrow)
         self.lines_cut_corners = 40  # how much close to the corner should you ignore (because you will deal with corners by themselves)
         self.corners = 55  # how big are the corners? a cornersXcorners square, should be bigger than lines_width
-        self.arrow_min_scale = 0.8
-        self.arrow_max_scale = 1
-        self.arrow_n_tries = 2
-        self.arrow_corner_rotations = 4
+        self.arrow_min_scale = 0.9
+        self.arrow_max_scale = 1.5
+        self.arrow_n_tries = 3
+        self.arrow_corner_rotations = 6
         self.ARROW_template_matching_score_threshold = .7
-        self.arrow_template = cv.Canny(cv.cvtColor(cv.imread('./Images/arrow.png'), cv.COLOR_BGR2GRAY), 50, 250)
+        self.arrowCannyLowT, self.arrowCannyHighT = 5, 10
+        self.arrow_template = cv.Canny(cv.cvtColor(cv.imread('./Images/arrow.png'), cv.COLOR_BGR2GRAY), self.arrowCannyLowT, self.arrowCannyHighT)
         self.arrow_TH, self.arrow_TW = self.arrow_template.shape[:2]
 
     def to_gray_scale(self, mat):
@@ -47,6 +49,15 @@ class cvPipeline():
             mask = cv.matchTemplate(gray, resized, cv.TM_CCOEFF_NORMED)
             _, max_val, _, max_loc = cv.minMaxLoc(mask)
             order[scale] = max_val
+            if self.debug:
+                print(f'Scaling :{scale}, maxVal: {max_val}')
+                # draw a bounding box around the detected region
+                clone = np.dstack([gray, gray, gray])
+                cv.rectangle(clone, (max_loc[0], max_loc[1]),
+                             (max_loc[0] + resized.shape[1], max_loc[1] + resized.shape[0]), (0, 0, 255), 2)
+                cv.imshow("Visualize", clone)
+                cv.imshow('vis', resized)
+                cv.waitKey(0)
             if found is None or max_val > found[0]:
                 found = (max_val, max_loc, scale, mask)
             if max_val >= self.break_seach_score_threshold:
@@ -72,11 +83,12 @@ class cvPipeline():
         og_W = gray.shape[1]
         of_H = gray.shape[0]
         # get pieces
-        top_row = cv.Canny(gray[:self.lines_width, self.lines_cut_corners:-self.lines_cut_corners], 50, 250)  # keep 30 pixels from top border, discard 40 pizels from right and from left border
-        right_row = cv.Canny(gray[self.lines_cut_corners:, -self.lines_width:], 50, 250)  # discard 40 pixels from top border,keep 30 pixels from the right border
-        left_row = cv.Canny(gray[self.lines_cut_corners:, :self.lines_width], 50, 250)  # discard 40 pixels from top border,keep 30 pixels from the left border
-        top_right_corner = cv.Canny(gray[:self.corners, -self.corners:], 50, 250)
-        top_left_corner = cv.Canny(gray[:self.corners, :self.corners], 50, 250)
+        top_row = cv.Canny(gray[:self.lines_width, self.lines_cut_corners:-self.lines_cut_corners], self.arrowCannyLowT,
+                           self.arrowCannyHighT)  # keep 30 pixels from top border, discard 40 pizels from right and from left border
+        right_row = cv.Canny(gray[self.lines_cut_corners:, -self.lines_width:], self.arrowCannyLowT, self.arrowCannyHighT)  # discard 40 pixels from top border,keep 30 pixels from the right border
+        left_row = cv.Canny(gray[self.lines_cut_corners:, :self.lines_width], self.arrowCannyLowT, self.arrowCannyHighT)  # discard 40 pixels from top border,keep 30 pixels from the left border
+        top_right_corner = cv.Canny(gray[:self.corners, -self.corners:], self.arrowCannyLowT, self.arrowCannyHighT)
+        top_left_corner = cv.Canny(gray[:self.corners, :self.corners], self.arrowCannyLowT, self.arrowCannyHighT)
 
         # find near edges
         found = None
@@ -89,20 +101,20 @@ class cvPipeline():
                 # matching to find the template in the image
                 result = cv.matchTemplate(targets[rotation], resized, cv.TM_CCOEFF_NORMED)
                 (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(result)
-                # if False:
-                #     print(f'Scaling :{scale},ROTATION: {rotation}, maxVal: {maxVal}')
-                #     # draw a bounding box around the detected region
-                #     clone = np.dstack([targets[rotation], targets[rotation], targets[rotation]])
-                #     cv.rectangle(clone, (maxLoc[0], maxLoc[1]),
-                #         (maxLoc[0] + resized.shape[1], maxLoc[1] + resized.shape[0]), (0, 0, 255), 2)
-                #     cv.imshow("Visualize", clone)
-                #     cv.imshow('vis',resized)
-                #     cv.waitKey(0)
+                if self.debug:
+                    print(f'Scaling :{scale},ROTATION: {rotation}, maxVal: {maxVal}')
+                    # draw a bounding box around the detected region
+                    clone = np.dstack([targets[rotation], targets[rotation], targets[rotation]])
+                    cv.rectangle(clone, (maxLoc[0], maxLoc[1]),
+                                 (maxLoc[0] + resized.shape[1], maxLoc[1] + resized.shape[0]), (0, 0, 255), 2)
+                    cv.imshow("Visualize", clone)
+                    cv.imshow('vis', resized)
+                    cv.waitKey(0)
                 if found is None or maxVal > found[0]:
                     found = (maxVal, maxLoc, scale, rotation)
                 # TODO BREAK HERE LOOP IF OVER THRESHOLD
 
-        #find in corners
+        # find in corners
         for rotation in np.linspace(-90, 90, self.arrow_corner_rotations*2):
             arrow_template = imutils.rotate(self.arrow_template, rotation)
             if rotation < 0:
@@ -115,6 +127,15 @@ class cvPipeline():
                 resized = imutils.resize(arrow_template, width=int(arrow_template.shape[1] * scale))
                 result = cv.matchTemplate(target, resized, cv.TM_CCOEFF_NORMED)
                 (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(result)
+                if self.debug:
+                    print(f'Scaling :{scale},ROTATION: {rotation}, maxVal: {maxVal}')
+                    # draw a bounding box around the detected region
+                    clone = np.dstack([target, target, target])
+                    cv.rectangle(clone, (maxLoc[0], maxLoc[1]),
+                                 (maxLoc[0] + resized.shape[1], maxLoc[1] + resized.shape[0]), (0, 0, 255), 2)
+                    cv.imshow("Visualize", clone)
+                    cv.imshow('vis', resized)
+                    cv.waitKey(0)
                 if found is None or maxVal > found[0]:
                     found = (maxVal, maxLoc, scale, corner_type)
         (maxScore, max_loc, scale, found_where) = found
@@ -172,5 +193,14 @@ class cvPipeline():
 
 if __name__ == '__main__':
     c = cvPipeline()
-    gray = cv.imread('./Images/testArrow_5.png', 0)
-    c.arrow_is_on_screen(gray)
+<< << << < HEAD
+gray = cv.imread('./Images/testArrow_5.png', 0)
+== == == =
+gray = cv.imread('./Images/test5.png', 0)
+# cv.imshow('t',gray)
+# cv.waitKey()
+cv.imshow('t', cv.Canny(gray, 5, 10))
+cv.waitKey()
+>>>>>> > 79d559a235d6c12316f2c1f3f2556b490d6ad360
+c.arrow_is_on_screen(gray)
+# c.sphere_is_on_screen(gray)
