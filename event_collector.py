@@ -278,6 +278,7 @@ if __name__ == "__main__":
 
             # print(f"last_frame.shape = {last_frame.shape}")
             cv.imshow("screen", superposed_frame.astype(np.uint8))
+            # cv.imwrite('./Images/screen.png',superposed_frame.astype(np.uint8))
             cv.waitKey(1)
             print(f'TOTAL TIME {time.time()-timing}, FPS: {1/(time.time()-timing)}')
 
