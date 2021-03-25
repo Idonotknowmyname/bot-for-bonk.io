@@ -23,7 +23,7 @@ def setup_browser(driver_type="chrome", headless=False):
 
 
 class GameEngine:
-    def __init__(self):
+    def __init__(self, collect_every=0.1, n_frames=5):
         self.browser = None
         self.event_collector = None
 
@@ -33,6 +33,8 @@ class GameEngine:
 
     def reset_event_collector(self):
         del self.event_collector
-        self.event_collector = EventCollector(browser)
+        self.event_collector = EventCollector(browser, collect_every=0.1, n_frames=5)
 
     def get_obs(self):
+
+        last_n_obs

@@ -72,7 +72,7 @@ CV_PIPELINE = {"states": {
 }}
 
 # This parameters dictates how long in seconds the event is_dead should be active for before deeming the player dead
-IS_DEAD_N_SECONDS = 1.
+IS_DEAD_N_SECONDS = 2.
 
 # This parameters dictates how long in seconds the event game_over should be active for before deeming the player game over
 IS_GAME_OVER_N_SECONDS = 1.
@@ -96,10 +96,10 @@ class EventCollector:
         self.previous_frames = []
 
         # Counter that keeps track of how many screenshots have been taken
-        self.last_frame_fetched = 0
+        self.last_frame_taken = 0
         # Counter that keeps track of the index of the last frame that was returned, so to wait if get_last_n_observations
         self.last_frame_returned = -1
-        self.frames_lock = threading.Lock()
+        self._frames_lock = threading.Lock()
 
         self.previous_masks = {}
         for mask_name in CV_PIPELINE['masks'].keys():
@@ -108,7 +108,7 @@ class EventCollector:
         self.previous_states = {}
         self.last_smoothed_state = {}
         self.last_state_updated = {}
-        self.states_lock = threading.Lock()
+        self._states_lock = threading.Lock()
         for status_name in CV_PIPELINE['states'].keys():
             self.previous_states[status_name] = []
             self.last_smoothed_state[status_name] = None
@@ -116,6 +116,7 @@ class EventCollector:
 
         self.stop = False
 
+        self._events_lock = threading.Lock()
         self.accumulated_events = []
 
         self.last_collected = None
@@ -135,14 +136,14 @@ class EventCollector:
                 t, frame = self._collect()
                 self.ticker.tock('collect')
                 self.last_collected = time.time()
-                self.last_frame_fetched += 1
+                self.last_frame_taken += 1
                 # print(f"Time for collect: {self.last_collected - start_collect:5}s")
                 ttt = time.time()
                 states, masks = self._run_cv_pipeline(t, frame)
                 t_taken = time.time() - ttt
                 logger.info(f'VISION: {t_taken:.5f}')
                 # Update all image observations
-                with self.frames_lock:
+                with self._frames_lock:
                     self.previous_frames.append(frame)
                     for key in masks.keys():
                         self.previous_masks[key].append(masks[key])
@@ -193,16 +194,19 @@ class EventCollector:
 
         return states, masks
 
-    def get_last_n_frames(self):
-        """ Returns the last self.n_frames (contains the time when it was retrieved in seconds) collected and the last n masks generated for each mask function in CV_PIPELINE on the past frames """
+    def get_frames_and_events(self):
+        """ Returns the last self.n_frames (contains the time when it was retrieved in seconds) collected, the last n masks generated for each mask function in CV_PIPELINE on the past frames, and the events that have accumulated."""
         frames = None
         mask_frames = None
 
         while len(self.previous_frames) == 0 or len(self.previous_masks[list(self.previous_masks.keys())[0]]) == 0:
-            print("Frames buffer still empty, waiting...")
+            # print("Frames buffer still empty, waiting...")
             time.sleep(0.1)
 
-        with self.frames_lock:
+        while self.last_frame_taken <= self.last_frame_returned:
+            time.sleep(0.1)
+
+        with self._frames_lock:
             frames = self.previous_frames[-self.n_frames:]
             mask_frames = {mask_name: vals[-self.n_frames:] for mask_name, vals in self.previous_masks.items()}
 
@@ -211,9 +215,15 @@ class EventCollector:
             for mask_name in self.previous_masks.keys():
                 self.previous_masks[mask_name] = self.previous_masks[mask_name][-self.n_frames:]
 
-        return frames, mask_frames
+            # Update last frame returned
+            self.last_frame_returned += 1
 
-    def get_accumulated_events(self):
+        with self._events_lock:
+            events = self._get_accumulated_events()
+
+        return (frames, mask_frames), events
+
+    def _get_accumulated_events(self):
         """ Return the accumulated events from last time this method was called"""
         events = self.accumulated_events
 
@@ -247,7 +257,7 @@ class EventCollector:
                 self.last_state_updated[status_name] = now
 
         # Produces new events by looking at the states_switch object
-        with self.states_lock:
+        with self._states_lock:
             # Check if the player died
             if state_switch.get('is_dead', False):
                 events.append(Event.PLAYER_DIED)
@@ -268,7 +278,8 @@ class EventCollector:
             if state_switch.get('player_loses', False):
                 events.append(Event.PLAYER_LOST)
 
-        self.accumulated_events.extend(events)
+        with self._events_lock:
+            self.accumulated_events.extend(events)
 
 
 if __name__ == "__main__":
@@ -286,8 +297,7 @@ if __name__ == "__main__":
     try:
         while True:
             timing = time.time()
-            frames, masks = ec.get_last_n_frames()
-            events = ec.get_accumulated_events()
+            (frames, masks), events = ec.get_frames_and_events()
             last_frame = frames[-1]
             pos_rect_mask = masks['position_rect'][-1][1]
             # print(frames[-1][0])

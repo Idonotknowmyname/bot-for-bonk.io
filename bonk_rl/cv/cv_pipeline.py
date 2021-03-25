@@ -7,7 +7,7 @@ import numpy as np
 
 class cvPipeline():
     def __init__(self):
-        self.debug = True  # plot for debugging, must be false when running
+        self.debug = False  # plot for debugging, must be false when running
         # self finding HYPERPARAMS
         self.template_min_scale = 0.04
         self.template_max_scale = 0.1
@@ -193,14 +193,10 @@ class cvPipeline():
 
 if __name__ == '__main__':
     c = cvPipeline()
-<< << << < HEAD
-gray = cv.imread('./Images/testArrow_5.png', 0)
-== == == =
-gray = cv.imread('./Images/test5.png', 0)
-# cv.imshow('t',gray)
-# cv.waitKey()
-cv.imshow('t', cv.Canny(gray, 5, 10))
-cv.waitKey()
->>>>>> > 79d559a235d6c12316f2c1f3f2556b490d6ad360
-c.arrow_is_on_screen(gray)
-# c.sphere_is_on_screen(gray)
+    gray = cv.imread('./Images/test5.png', 0)
+    # cv.imshow('t',gray)
+    # cv.waitKey()
+    cv.imshow('t', cv.Canny(gray, 5, 10))
+    cv.waitKey()
+    c.arrow_is_on_screen(gray)
+    # c.sphere_is_on_screen(gray)
