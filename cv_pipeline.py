@@ -7,7 +7,7 @@ import numpy as np
 
 class cvPipeline():
     def __init__(self):
-        self.debug = False#plot for debugging, must be false when running
+        self.debug = True#plot for debugging, must be false when running
         self.template_min_scale = 0.04
         self.template_max_scale = 0.1
         self.templates_n_tries = 8
@@ -18,14 +18,14 @@ class cvPipeline():
         self.sphere_search_scales = np.linspace(self.template_min_scale, self.template_max_scale, self.templates_n_tries)
 
         #arrow finding HYPERPARAMS
-        self.lines_width = 40#top and vertical line width (should be same as width of arrow)
+        self.lines_width = 45#top and vertical line width (should be same as width of arrow)
         self.lines_cut_corners = 40# how much close to the corner should you ignore (because you will deal with corners by themselves)
         self.corners = 55#how big are the corners? a cornersXcorners square, should be bigger than lines_width
         self.arrow_min_scale = 0.7    
         self.arrow_max_scale = 1.2
-        self.arrow_n_tries = 10
+        self.arrow_n_tries = 7
         self.arrow_corner_rotations = 6   
-        self.ARROW_template_matching_score_threshold = .7
+        self.ARROW_template_matching_score_threshold = .5
         self.arrowCannyLowT, self.arrowCannyHighT = 5,10
         self.arrow_template =  cv.cvtColor(cv.imread('./Images/arrow_edges.png'),cv.COLOR_BGR2GRAY)
         self.arrow_TH, self.arrow_TW = self.arrow_template.shape[:2]
@@ -122,7 +122,7 @@ class cvPipeline():
             else:
                 corner_type = 1
                 target = top_left_corner
-            for scale in np.linspace(self.arrow_min_scale, self.arrow_max_scale, self.arrow_n_tries)[::-1]:
+            for scale in np.linspace(self.arrow_min_scale+0.2, self.arrow_max_scale+0.2, self.arrow_n_tries)[::-1]:
                 resized = imutils.resize(arrow_template, width=int(arrow_template.shape[1] * scale))
                 result = cv.matchTemplate(target, resized, cv.TM_CCOEFF_NORMED)
                 (minVal, maxVal, minLoc, maxLoc) = cv.minMaxLoc(result)
