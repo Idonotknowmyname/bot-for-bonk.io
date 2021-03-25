@@ -1,3 +1,8 @@
+import time
+import os
+import os.path as osp
+import atexit
+
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -8,10 +13,6 @@ from selenium import webdriver
 
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
-
-import time
-import os
-import os.path as osp
 
 
 def skip_cookies(browser):
@@ -40,8 +41,8 @@ def setup_browser(driver_type="firefox", headless=False):
             options.add_argument("--headless")
 
         browser = webdriver.Firefox(options=options)
-        browser.set_window_size(1080,1080)
-    
+        browser.set_window_size(1080, 1080)
+
     elif driver_type == "htmlUnit":
         driver = webdriver.Remote(desired_capabilities=webdriver.DesiredCapabilities.HTMLUNIT)
         # driver = webdriver.Remote(desired_capabilities=webdriver.DesiredCapabilities.HTMLUNIT)
@@ -50,6 +51,10 @@ def setup_browser(driver_type="firefox", headless=False):
         raise NotImplementedError()
 
     browser.get(BONK_URL)
+
+    # Ensures that the process is closed if python exits
+    atexit.register(lambda: browser.close())
+
     return browser
 
 

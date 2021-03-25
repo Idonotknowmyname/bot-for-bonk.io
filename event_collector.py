@@ -4,10 +4,17 @@ import io
 import cv2 as cv
 from collections import defaultdict
 from enum import Enum
+import logging
 
 from PIL import Image
 import numpy as np
 from cv_pipeline import cvPipeline
+from tools import Ticker
+
+logging.basicConfig()
+logging.root.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def get_timed_element_from_last_n_seconds(n_seconds, timed_elements):
@@ -21,7 +28,7 @@ def get_timed_element_from_last_n_seconds(n_seconds, timed_elements):
 
     if i == 0:
         # The first element is already very old
-        print(
+        logging.info(
             f"(get_timed_element_from_last_n_seconds) -> WARNING: the last element of the list is already more than n seconds in the past, data is stale:\n\tage: {now - t:.3f}sec\n\tn_seconds: {n_seconds}")
         # Return the last element only to not break
         return timed_elements[-1:]
@@ -87,6 +94,11 @@ class EventCollector:
         self.n_frames = n_frames
 
         self.previous_frames = []
+
+        # Counter that keeps track of how many screenshots have been taken
+        self.last_frame_fetched = 0
+        # Counter that keeps track of the index of the last frame that was returned, so to wait if get_last_n_observations
+        self.last_frame_returned = -1
         self.frames_lock = threading.Lock()
 
         self.previous_masks = {}
@@ -111,17 +123,24 @@ class EventCollector:
 
         self.cv_pipeline = cvPipeline()
 
+        self.ticker = Ticker(tick_tock=True)
+
     def run_thread(self):
-        """ Method to be run as a tread continuously, at more or less fixed time intervals it collects the screenshot, runs the CV pipeline and it updates the internal list of events to report. """
+        """ Method to be run as a thread continuously, at more or less fixed time intervals it collects the screenshot, runs the CV pipeline and it updates the internal list of events to report. """
         self.last_collected = -1e9
 
         while not self.stop:
             if time.time() - self.last_collected > self.collect_every:
+                self.ticker.tick('collect')
                 t, frame = self._collect()
+                self.ticker.tock('collect')
                 self.last_collected = time.time()
+                self.last_frame_fetched += 1
+                # print(f"Time for collect: {self.last_collected - start_collect:5}s")
                 ttt = time.time()
                 states, masks = self._run_cv_pipeline(t, frame)
-                # print(f'VISION: {time.time()-ttt:.5f}')
+                t_taken = time.time() - ttt
+                logger.info(f'VISION: {t_taken:.5f}')
                 # Update all image observations
                 with self.frames_lock:
                     self.previous_frames.append(frame)
@@ -134,22 +153,21 @@ class EventCollector:
         try:
             element = self.browser.find_element_by_id('gamerenderer')
         except Exception as e:
-            print(f"WARNING: error when finding the game rendered element:", str(e))
+            logger.warn(f"WARNING: error when finding the game rendered element:", str(e))
 
         try:
             start_time = time.time()
             png_bytes = element.screenshot_as_png
             time_captured = time.time()
-            # print(f"Screenshot {time.time() - start_time:.5f}",end=' | ')
-            # print()
+            logger.info(f"Screenshot {time.time() - start_time:.5f}")
         except AttributeError as e:
             if 'NoneType' in str(e):
-                print(f"WARNING: got error when trying to take screenshot: {str(e)}")
+                logger.warning(f"WARNING: got error when trying to take screenshot: {str(e)}")
             else:
                 raise e
 
         # start_time = time.time()
-        arr = np.array(Image.open(io.BytesIO(png_bytes)))[:, :, :3]
+        arr = np.array(Image.open(io.BytesIO(png_bytes)))[:, :, (2, 1, 0)]
         # print(f"Captured a numpy array of shape: {arr.shape}")
         # print(f"Loading the image in a numpy array took {time.time() - start_time:.3f}s")
 
@@ -269,17 +287,19 @@ if __name__ == "__main__":
         while True:
             timing = time.time()
             frames, masks = ec.get_last_n_frames()
+            events = ec.get_accumulated_events()
             last_frame = frames[-1]
             pos_rect_mask = masks['position_rect'][-1][1]
             # print(frames[-1][0])
-
+            if len(events) > 0:
+                print(f"STUFF HAPPENED! -> {events}")
             superposed_frame = np.expand_dims(np.where(pos_rect_mask == 255, 0, 1), axis=-1) * last_frame
             # print(f"pos_rect_mask: min = {pos_rect_mask.min()}, max = {pos_rect_mask.max()}, mean = {pos_rect_mask.mean()}")
 
             # print(f"last_frame.shape = {last_frame.shape}")
             cv.imshow("screen", superposed_frame.astype(np.uint8))
             cv.waitKey(1)
-            print(f'TOTAL TIME {time.time()-timing}, FPS: {1/(time.time()-timing)}')
+            # print(f'TOTAL TIME {time.time()-timing}, FPS: {1/(time.time()-timing)}')
 
     except KeyboardInterrupt:
         browser.close()
